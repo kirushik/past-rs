@@ -1,0 +1,6 @@
+[package]
+name = "past"
+version = "0.1.0"
+authors = ["kirill@pimenov.cc <kirill@parity.io>"]
+
+[dependencies]
