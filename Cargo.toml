@@ -1,6 +1,9 @@
 [package]
 name = "past"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["kirill@pimenov.cc <kirill@parity.io>"]
+description = "Rust implementation of Platform-Agnostic Security Tokens"
+readme = "README.md"
+license = "MIT"
 
 [dependencies]
