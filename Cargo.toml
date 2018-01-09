@@ -7,3 +7,5 @@ readme = "README.md"
 license = "MIT"
 
 [dependencies]
+ring = "0.13.0-alpha"
+base64 = "0.9"
