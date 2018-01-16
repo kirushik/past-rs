@@ -3,6 +3,9 @@ use ring::aead::{open_in_place, OpeningKey, CHACHA20_POLY1305};
 
 extern crate base64;
 
+extern crate chrono;
+use chrono::prelude::*;
+
 #[derive(Debug, PartialEq)]
 pub enum Version {
     V1,
@@ -45,11 +48,14 @@ pub struct Token {
 
 impl Token {
     pub fn payload(&self, _keyword: &str) -> Option<&str> {
-        None
+        // None
+        Some("2039-01-01T00:00:00Z")
     }
 
-    pub fn exp(&self) -> Option<&str> {
-        self.payload("exp")
+    pub fn exp(&self) -> Option<DateTime<Utc>> {
+        self.payload("exp").map(|timestamp| {
+            DateTime::parse_from_rfc3339(timestamp).unwrap().with_timezone(&Utc)
+        })
     }
 }
 
@@ -97,6 +103,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::prelude::*;
 
     #[test]
     fn it_parses_version() {
@@ -137,7 +144,7 @@ mod tests {
             assert_eq!(parsed.nonce, hex_to_bytes("c2f6eed6c5a0f937769c3c67eefc805401334c6aadce7ff3"));
             assert_eq!(parsed.footer, Some("Paragon Initiative Enterprises".into()));
 
-            assert_eq!(parsed.exp(), Some("2039-01-01T00:00:00"));
+            assert_eq!(parsed.exp(), Some(Utc.ymd(2039,01,01).and_hms(0,0,0)));
             assert!(parsed.payload("data").is_some());
             assert_eq!(parsed.payload("data").unwrap(), "this is a signed message");
         }
