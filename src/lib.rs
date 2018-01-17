@@ -6,6 +6,21 @@ extern crate base64;
 extern crate chrono;
 use chrono::prelude::*;
 
+#[macro_use]
+extern crate failure;
+
+#[derive(Debug, Fail)]
+pub enum PastError {
+    #[fail(display = "Unknown version provided")]
+    UnknownVersion,
+    #[fail(display = "Unknown purpose provided")]
+    UnknownPurpose,
+    #[fail(display = "Malformed past token around {}", _0)]
+    Malformed(String),
+    #[fail(display = "Failed to decode base64 in token")]
+    Base64Decode(#[cause] base64::DecodeError)
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Version {
     V1,
@@ -13,11 +28,11 @@ pub enum Version {
 }
 
 impl Version {
-    fn parse(version: &str) -> Result<Self, ()> {
+    fn parse(version: &str) -> Result<Self, PastError> {
         match version {
             "v1" => Ok(Version::V1),
             "v2" => Ok(Version::V2),
-            _ => Err(())
+            _ => Err(PastError::UnknownVersion)
         }
     }
 }
@@ -29,11 +44,11 @@ pub enum Purpose {
 }
 
 impl Purpose {
-    fn parse(purpose: &str) -> Result<Self, ()> {
+    fn parse(purpose: &str) -> Result<Self, PastError> {
         match purpose {
             "local" => Ok(Purpose::Local),
             "public" => Ok(Purpose::Public),
-            _ => Err(())
+            _ => Err(PastError::UnknownPurpose)
         }
     }
 }
@@ -63,8 +78,8 @@ pub struct Parser<'a> {
     key: &'a[u8]
 }
 
-fn decode_base64(encoded: &str) -> Vec<u8> {
-    base64::decode_config(encoded, base64::URL_SAFE).unwrap()
+fn decode_base64(encoded: &str) -> Result<Vec<u8>, PastError> {
+    base64::decode_config(encoded, base64::URL_SAFE).map_err(PastError::Base64Decode)
 }
 
 impl<'a> Parser<'a> {
@@ -74,15 +89,17 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(&self, token: &str) -> Result<Token, ()> {
+    pub fn parse(&self, token: &str) -> Result<Token, PastError> {
         let mut token_parts = token.split('.');
-        let version = token_parts.next().map(Version::parse).unwrap().unwrap();
-        let purpose = token_parts.next().map(Purpose::parse).unwrap().unwrap();
+        let version = Version::parse(token_parts.next().ok_or(PastError::Malformed("version".into()))?)?;
+        let purpose = Purpose::parse(token_parts.next().ok_or(PastError::Malformed("purpose".into()))?)?;
 
         let key = OpeningKey::new(&CHACHA20_POLY1305, self.key).unwrap();
-        let mut payload = token_parts.next().map(decode_base64).unwrap();
+        let mut payload = decode_base64(token_parts.next().ok_or(PastError::Malformed("payload".into()))?)?;
         let (nonce, data) = payload.split_at_mut(24);
-        let footer: Option<String> = token_parts.next().map(decode_base64).map(|vec| String::from_utf8_lossy(&vec).into());
+        let footer: Option<String> = token_parts.next()
+            .and_then(|footer| decode_base64(footer).ok())
+            .map(|chars| String::from_utf8_lossy(&chars).into());
 
         // if let Some(ref footer) = footer {
         //     open_in_place(&key, nonce, footer.as_bytes(), 0, data).unwrap();
@@ -91,11 +108,11 @@ impl<'a> Parser<'a> {
         // }
 
         Ok(Token{
-            version: version,
-            purpose: purpose,
+            version,
+            purpose,
             nonce: nonce.into(),
             data: vec![],
-            footer: footer
+            footer
         })
     }
 }
