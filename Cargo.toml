@@ -11,3 +11,6 @@ ring = "0.13.0-alpha"
 base64 = "0.9"
 chrono = "0.4"
 failure = "0.1"
+
+#TODO: move to dev-dependencies
+hex = "0.3.1"
