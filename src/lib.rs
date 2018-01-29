@@ -9,7 +9,8 @@ use chrono::prelude::*;
 #[macro_use]
 extern crate failure;
 
-extern crate hex;
+#[macro_use]
+extern crate hex_literal;
 
 #[derive(Debug, Fail)]
 pub enum PastError {
@@ -104,14 +105,6 @@ impl<'a> Parser<'a> {
             .ok_or(PastError::Malformed("payload".into()))?)?;
         let (nonce, data) = payload.split_at_mut(24);
 
-        let tag_position = data.len()-16;
-        let (data, tag) = data.split_at_mut(tag_position);
-        println!("{:?}\n{:?}\n{:?}",
-            hex::encode(&nonce),
-            hex::encode(&data),
-            hex::encode(&tag)
-        );
-
         let footer: Option<String> = token_parts
             .next()
             .and_then(|footer| decode_base64(footer).ok())
@@ -182,14 +175,14 @@ mod tests {
         fn it_decrypts_local_token() {
             let auth_token = "v2.local.lClhzVOuseCWYep44qbA8rmXry66lUupyENijX37_I_z34EiOlfyuwqIIhOjF-e9m2J-Qs17Gs-BpjpLlh3zf-J37n7YGHqMBV6G5xD2aeIKpck6rhfwHpGF38L7ryYuzuUeqmPg8XozSfU4PuPp9o8.UGFyYWdvbiBJbml0aWF0aXZlIEVudGVycHJpc2Vz";
             let encryption_key =
-                hex::decode("707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f").unwrap();
+                hex!("707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f");
 
             let parser = Parser::new(&encryption_key);
             let parsed = parser.parse(auth_token).unwrap();
 
             assert_eq!(
                 parsed.nonce,
-                hex::decode("942961cd53aeb1e09661ea78e2a6c0f2b997af2eba954ba9").unwrap()
+                hex!("942961cd53aeb1e09661ea78e2a6c0f2b997af2eba954ba9")
             );
             assert_eq!(parsed.footer, Some("Paragon Initiative Enterprises".into()));
 
