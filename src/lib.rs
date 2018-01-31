@@ -78,15 +78,20 @@ impl Token {
 }
 
 pub struct Parser<'a> {
-    key: &'a [u8],
+    key: &'a [u8; 32],
 }
 
 fn decode_base64(encoded: &str) -> Result<Vec<u8>, PastError> {
     base64::decode_config(encoded, base64::URL_SAFE).map_err(PastError::Base64Decode)
 }
 
+fn pre_auth_encode<'a, 'b>(header: &'a [u8], nonce: &'b [u8], footer: &Option<String>) -> Vec<u8> {
+    // TODO actual implementation, as seen in https://github.com/paragonie/past/blob/master/src/Util.php#L118-L127
+    return vec![]
+}
+
 impl<'a> Parser<'a> {
-    pub fn new(key: &'a [u8]) -> Self {
+    pub fn new(key: &'a [u8; 32]) -> Self {
         Parser { key: key }
     }
 
@@ -110,11 +115,10 @@ impl<'a> Parser<'a> {
             .and_then(|footer| decode_base64(footer).ok())
             .map(|chars| String::from_utf8_lossy(&chars).into());
 
-        if let Some(ref footer) = footer {
-            open_in_place(&key, nonce, footer.as_bytes(), 0, data).map_err(PastError::Decryption)?;
-        } else {
-            open_in_place(&key, nonce, &[], 0, data).map_err(PastError::Decryption)?;
-        }
+        let header = b"v2.local."; // TODO make this dynamic
+        let additional_data = pre_auth_encode(header, nonce, &footer);
+
+        open_in_place(&key, nonce, &additional_data, 0, data).map_err(PastError::Decryption)?;
 
         Ok(Token {
             version,
