@@ -9,6 +9,9 @@ use chrono::prelude::*;
 #[macro_use]
 extern crate failure;
 
+extern crate little_endian;
+use little_endian::Encode;
+
 #[macro_use]
 extern crate hex_literal;
 
@@ -87,7 +90,19 @@ fn decode_base64(encoded: &str) -> Result<Vec<u8>, PastError> {
 
 fn pre_auth_encode<'a, 'b>(header: &'a [u8], nonce: &'b [u8], footer: &Option<String>) -> Vec<u8> {
     // TODO actual implementation, as seen in https://github.com/paragonie/past/blob/master/src/Util.php#L118-L127
-    return vec![]
+    let mut result: Vec<u8> = vec![0; header.len() + nonce.len() + 16];
+    {
+        let (header_slice, nonce_slice) = result.split_at_mut(8+header.len());
+
+        let (header_size_slice, header_slice) = header_slice.split_at_mut(8);
+        (header.len() as u64).write_le(header_size_slice);
+        header_slice.copy_from_slice(header);
+
+        let (nonce_size_slice, nonce_slice) = nonce_slice.split_at_mut(8);
+        (nonce.len() as u64).write_le(nonce_size_slice);
+        nonce_slice.copy_from_slice(nonce)
+    }
+    return result;
 }
 
 impl<'a> Parser<'a> {
@@ -117,6 +132,7 @@ impl<'a> Parser<'a> {
 
         let header = b"v2.local."; // TODO make this dynamic
         let additional_data = pre_auth_encode(header, nonce, &footer);
+        println!("{:?}", &additional_data);
 
         open_in_place(&key, nonce, &additional_data, 0, data).map_err(PastError::Decryption)?;
 
